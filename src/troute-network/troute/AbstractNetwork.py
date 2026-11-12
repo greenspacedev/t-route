@@ -709,7 +709,25 @@ class AbstractNetwork(ABC):
                 
                 # convert timestamp from string to datetime
                 self._t0 = datetime.strptime(t0_str, "%Y-%m-%d_%H:%M:%S")
-            
+
+                # The restart's Restart_Time overrides start_datetime here, but
+                # other parts of the run (e.g. parquet output timestamps, and any
+                # externally built DA/forcing data) are keyed off start_datetime.
+                # A mismatch silently shifts those relative to the model clock.
+                start_datetime = restart_parameters.get("start_datetime", None)
+                if start_datetime is not None and start_datetime != self._t0:
+                    LOG.warning(
+                        "start_datetime (%s) does not match Restart_Time (%s) in "
+                        "wrf_hydro_channel_restart_file %s. t-route uses Restart_Time "
+                        "as t0, so forcing files are selected from %s while outputs "
+                        "labeled from start_datetime (e.g. parquet) will be offset by %s.",
+                        start_datetime,
+                        self._t0,
+                        restart_parameters["wrf_hydro_channel_restart_file"],
+                        self._t0,
+                        self._t0 - start_datetime,
+                    )
+
             else:
                 # Set cold initial state
                 # assume to be zero
