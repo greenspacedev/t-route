@@ -10,12 +10,17 @@ To re-create this test, download the CHRTOUT files from the short-range simulati
 a significant rainstorm in Alabama:
 ``` bash
 for i in {00..18}; do wget https://storage.googleapis.com/national-water-model/nwm.20260619/short_range/nwm.t04z.short_range.channel_rt.f0"$i".conus.nc; done
-for i in {21..04}; do echo $i; g=$(printf "%02d" "$((i-3))"); h=$(printf "%02d" "$((i+1))"); mv nwm.*.f0"$g".conus.nc 20260619"$h"00.CHRTOUT_DOMAIN1; done
+# fNNN holds the lateral inflow for the hour ending at 04z + NNN h, but t-route applies a
+# forcing file named T over the hour starting at T. So f001 is named 04:00, f018 is named 21:00.
+for g in {01..18}; do h=$(printf "%02d" "$((10#$g + 3))"); mv nwm.*.f0"$g".conus.nc 20260619"$h"00.CHRTOUT_DOMAIN1; done
 ```
+The file names intentionally differ from each file's internal `model_output_valid_time` by one hour.
+t-route only uses those attributes to determine the forcing interval, so the mismatch is harmless.
 
 Filter down the forcing files:
 ``` py
 filelist = [
+    "202606190400.CHRTOUT_DOMAIN1",
     "202606190500.CHRTOUT_DOMAIN1",
     "202606190600.CHRTOUT_DOMAIN1",
     "202606190700.CHRTOUT_DOMAIN1",
@@ -33,7 +38,6 @@ filelist = [
     "202606191900.CHRTOUT_DOMAIN1",
     "202606192000.CHRTOUT_DOMAIN1",
     "202606192100.CHRTOUT_DOMAIN1",
-    "202606192200.CHRTOUT_DOMAIN1",
 ]
 
 import os
@@ -56,6 +60,9 @@ wget https://storage.googleapis.com/national-water-model/nwm.20260619/analysis_a
 ```
 There are steps to take to parse this down to a properly ordered file with fields needed for restart.
 Those will be documented further soon, but for now, you can reference https://github.com/alk05/routing-comparison-nwm-nextgen-troute
+The restart's `Restart_Time` attribute must be the analysis valid time (`2026-06-19_04:00:00`), matching
+`start_datetime` in the test config. t-route takes `t0` from `Restart_Time`, so an offset here shifts the
+whole run by that amount.
 After downloading, you can filter the CONUS result thus:
 ``` py
 import xarray as xr
